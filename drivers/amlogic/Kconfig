@@ -103,4 +103,5 @@ source "drivers/amlogic/crypto/Kconfig"
 
 source "drivers/amlogic/mhl/Kconfig"
 isource "../hardware/amlogic/pmu/Kconfig"
+source "drivers/amlogic/cpufreq/Kconfig"
 endmenu
