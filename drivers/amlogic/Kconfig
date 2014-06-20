@@ -35,8 +35,8 @@ source "drivers/amlogic/usb/Kconfig"
 #source "drivers/amlogic/cardreader/Kconfig"
 source "drivers/amlogic/mmc/Kconfig"
 source "drivers/amlogic/spi_nor/Kconfig"
-isource "../hardware/amlogic/nand/amlnf/Kconfig"
-isource "../hardware/amlogic/nand/nand/Kconfig"
+isource "drivers/amlogic/nand/amlnf/Kconfig"
+isource "drivers/amlogic/nand/nand/Kconfig"
 
 #
 #	Network devices
@@ -89,11 +89,11 @@ source "drivers/amlogic/dvb_tv/Kconfig"
 #	GPU
 #
 comment "GPU (ARM Mali)"
-#isource "drivers/amlogic/ump/Kconfig"
-#isource "drivers/amlogic/mali/Kconfig"
+isource "drivers/amlogic/gpu/ump/Kconfig"
+isource "drivers/amlogic/gpu/mali/Kconfig"
 #comment "GPU (ARM Mali (external))"
-isource "../hardware/arm/gpu/ump/Kconfig"
-isource "../hardware/arm/gpu/mali/Kconfig"
+#isource "../hardware/arm/gpu/ump/Kconfig"
+#isource "../hardware/arm/gpu/mali/Kconfig"
 source "drivers/amlogic/ion_dev/Kconfig"
 
 #

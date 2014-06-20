@@ -33,10 +33,8 @@ obj-y += cpufreq/
 obj-$(CONFIG_GPIO_AMLOGIC) += gpio/
 obj-y += pinctrl/
 
-ifneq ($(wildcard $(srctree)/../hardware/amlogic/nand),)
-	obj-$(CONFIG_AML_NEXT_GEN_NAND) += ../../../hardware/amlogic/nand/amlnf/
-	obj-$(CONFIG_AM_NAND) += ../../../hardware/amlogic/nand/nand/
-endif
+obj-$(CONFIG_AML_NEXT_GEN_NAND) += nand/amlnf/
+obj-$(CONFIG_AM_NAND) += nand/nand/
 
 obj-y += ethernet/
 
@@ -117,10 +115,8 @@ obj-$(CONFIG_AML_REG_DEBUG) += regd/
 
 obj-$(CONFIG_AML_WATCHDOG) += watchdog/
 
-ifneq ($(wildcard $(srctree)/../hardware/arm/gpu),)
-	obj-$(CONFIG_UMP) += ../../../hardware/arm/gpu/ump/
-	obj-$(CONFIG_MALI400) += ../../../hardware/arm/gpu/mali/
-endif
+obj-$(CONFIG_UMP) += gpu/ump/
+obj-$(CONFIG_MALI400) += gpu/mali/
 
 obj-$(CONFIG_AMLOGIC_ION) += ion_dev/
 
