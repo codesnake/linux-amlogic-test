@@ -1957,6 +1957,7 @@ static void aml_nand_select_chip(struct mtd_info *mtd, int chipnr)
 	
 	switch (chipnr) {
 		case -1:
+/*
 		#ifdef CONFIG_OF
 			if(nand_idleflag){
 				ret = pinctrl_select_state(nand_pinctrl , nand_idlestate);
@@ -1968,8 +1969,10 @@ static void aml_nand_select_chip(struct mtd_info *mtd, int chipnr)
 		#else
 			nand_release_chip();
 		#endif
+*/
 			break;
 		case 0:
+/*
 		#ifdef CONFIG_OF
 		 for (retry=0; retry<10; retry++) {
 			mutex_lock(&spi_nand_mutex);
@@ -1988,8 +1991,9 @@ static void aml_nand_select_chip(struct mtd_info *mtd, int chipnr)
 		if (retry == 10) return ;
 			aml_chip->aml_nand_select_chip(aml_chip, chipnr);
 		#else
+*/
 			nand_get_chip();
-		#endif
+/*		#endif*/
 			break;
 		case 1:
 		case 2:
