@@ -22,7 +22,7 @@
 #define MAX_CACHE_WRITE_NUM  				      4
 
 //for req sync flag, writting into flash immediately
-#define NFTL_CACHE_FLUSH_SYNC                      0
+#define NFTL_CACHE_FLUSH_SYNC                      1
 
 
 
