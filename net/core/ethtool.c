@@ -1467,6 +1467,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
 			return -EPERM;
 	}
 
+	if (!dev->ethtool_ops)
+		return -EOPNOTSUPP;
+
 	if (dev->ethtool_ops->begin) {
 		rc = dev->ethtool_ops->begin(dev);
 		if (rc  < 0)
