@@ -79,11 +79,10 @@ static unsigned int g_rx_cnt = 0;
 static int g_mdcclk = 2;
 static int g_rxnum = 64;
 static int g_txnum = 64;
-static int new_maclogic = 0;
+
 static unsigned int ethbaseaddr = ETHBASE;
 static unsigned int savepowermode = 0;
 static int interruptnum = ETH_INTERRUPT;
-static int phy_interface = 1;
 static int reset_delay = 0;
 static int reset_pin_num = 0;
 static int reset_pin_enable = 0;
@@ -100,7 +99,6 @@ MODULE_PARM_DESC(amlog_level, "ethernet debug level\n");
 //#define PHY_LOOPBACK_TEST
 
 static int running = 0;
-static struct ethtool_wol *syswol =NULL;
 static struct net_device *my_ndev = NULL;
 static struct aml_eth_platdata *eth_pdata = NULL;
 static unsigned int g_ethernet_registered = 0;
@@ -116,8 +114,6 @@ static char DEFMAC[] = "\x00\x01\x23\xcd\xee\xaf";
 void start_test(struct net_device *dev);
 static void write_mac_addr(struct net_device *dev, char *macaddr);
 static int ethernet_reset(struct net_device *dev);
-static void am_net_dump_macreg(void);
-static void read_macreg(void);
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -882,7 +878,6 @@ static int mac_pmt_enable(unsigned int enable)
  * @return
  */
 /* --------------------------------------------------------------------------*/
-#undef CONFIG_AML_NAND_KEY
 #ifdef CONFIG_AML_NAND_KEY
 extern int get_aml_key_kernel(const char* key_name, unsigned char* data, int ascii_flag);
 extern int extenal_api_key_set_version(char *devvesion);
@@ -976,17 +971,14 @@ static void aml_adjust_link(struct net_device *dev)
 			new_state = 1;
 			if (!(phydev->duplex)) {
 				ctrl &= ~((1 << 11)|(7<< 17)|(3<<5));
-				if(new_maclogic != 0)
-					ctrl |= (4 << 17);
+				ctrl |= (4 << 17);
 				ctrl |= (3 << 5);
 				g_rxnum = 128;
 				g_txnum = 128;
 			}
 			else {
 				ctrl &= ~((7 << 17)|(3 << 5));
-				ctrl |= (1 << 11);
-				if(new_maclogic != 0)
-					ctrl |= (2 << 17);
+				ctrl |= (1 << 11)|(2 << 17);
 				g_rxnum = 128;
 				g_txnum = 128;
 			}
@@ -996,22 +988,17 @@ static void aml_adjust_link(struct net_device *dev)
 
 		if (phydev->speed != priv->speed) {
 			new_state = 1;
-			if(new_maclogic != 0)
-				PERIPHS_CLEAR_BITS(P_PREG_ETHERNET_ADDR0, 1);
+			PERIPHS_CLEAR_BITS(P_PREG_ETHERNET_ADDR0, 1);
 			switch (phydev->speed) {
 				case 1000:
-					ctrl &= ~((1 << 14)|(1 << 15));//1000m 
-					ctrl |= (1 << 13);//1000m 
 					break;
 				case 100:
-					ctrl |= (1 << 14)|(1 << 15);
-					if(new_maclogic !=0)
-						PERIPHS_SET_BITS(P_PREG_ETHERNET_ADDR0, (1 << 1));
+					ctrl |= (1 << 14);
+					PERIPHS_SET_BITS(P_PREG_ETHERNET_ADDR0, (1 << 1));
 					break;
 				case 10:
 					ctrl &= ~((1 << 14)|(3 << 5));//10m half backoff = 00
-					if(new_maclogic !=0)
-						PERIPHS_CLEAR_BITS(P_PREG_ETHERNET_ADDR0, (1 << 1));
+					PERIPHS_CLEAR_BITS(P_PREG_ETHERNET_ADDR0, (1 << 1));
 					if(phydev->phy_id == INTERNALPHY_ID){
 						val =0x4100b040;
 						WRITE_CBUS_REG(P_PREG_ETHERNET_ADDR0, val);
@@ -1022,8 +1009,7 @@ static void aml_adjust_link(struct net_device *dev)
 								" or 100!\n", dev->name, phydev->speed);
 					break;
 			}
-			if(new_maclogic !=0)
-				PERIPHS_SET_BITS(P_PREG_ETHERNET_ADDR0, 1);
+			PERIPHS_SET_BITS(P_PREG_ETHERNET_ADDR0, 1);
 			priv->speed = phydev->speed;
 		}
 
@@ -1041,11 +1027,8 @@ static void aml_adjust_link(struct net_device *dev)
 
 	}
 
-	if (new_state){
-		if(priv->phy_interface == PHY_INTERFACE_MODE_RGMII)
-			read_macreg();
+	if (new_state)
 		phy_print_status(phydev);
-	}
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
@@ -1068,11 +1051,7 @@ static int aml_phy_init(struct net_device *dev)
         priv->oldlink = 0;
         priv->speed = 0;
         priv->oldduplex = -1;
-		printk("phy_interface = %d\n",phy_interface);
-		if(phy_interface == 1)
-			priv->phy_interface = PHY_INTERFACE_MODE_RMII;
-		else
-			priv->phy_interface = PHY_INTERFACE_MODE_RGMII;
+	priv->phy_interface = PHY_INTERFACE_MODE_RMII;
 
         if (priv->phy_addr == -1) {
                 /* We don't have a PHY, so do nothing */
@@ -1113,23 +1092,6 @@ static int aml_phy_init(struct net_device *dev)
 
         return 0;
 }
-static void read_macreg(void)
-{
-	int reg = 0;
-	int val = 0;
-	struct am_net_private *np = netdev_priv(my_ndev);
-
-	if ((np == NULL) || (np->dev == NULL))
-		return;
-
-	for (reg = ETH_MAC_0_Configuration; reg <= ETH_MAC_54_SGMII_RGMII_Status; reg += 0x4) {
-		val = readl((void*)(np->base_addr + reg));
-	}
-
-	for (reg = ETH_DMA_0_Bus_Mode; reg <= ETH_DMA_21_Curr_Host_Re_Buffer_Addr; reg += 0x4) {
-		val = readl((void*)(np->base_addr + reg));
-	}
-}
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -1164,13 +1126,14 @@ static int ethernet_reset(struct net_device *dev)
 
 	aml_mac_init(dev);
 
-	np->first_tx = 1;
+	//np->first_tx = 1;
 	tmp = readl((void*)(np->base_addr + ETH_DMA_6_Operation_Mode));//tx enable
 	tmp |= (7 << 14) | (1 << 13);
 	writel(tmp, (void*)(np->base_addr + ETH_DMA_6_Operation_Mode));
 	tmp = readl((void*)(np->base_addr + ETH_MAC_6_Flow_Control));
 	tmp |= (1 << 1) | (1 << 0);
 	writel(tmp, (void*)(np->base_addr + ETH_MAC_6_Flow_Control));
+
 out_err:
 	return res;
 }
@@ -1294,10 +1257,7 @@ static int start_tx(struct sk_buff *skb, struct net_device *dev)
 	struct _tx_desc *tx;
 	unsigned long flags;
 	dev->trans_start = jiffies;
-	if (np->first_tx) {
-		if(np->phy_interface == PHY_INTERFACE_MODE_RGMII)
-			read_macreg();
-	}
+
 	if (!running) {
 		return -1;
 	}
@@ -1692,17 +1652,10 @@ static void set_multicast_list(struct net_device *dev)
 		writel(tmp, (void*)(np->base_addr + ETH_MAC_1_Frame_Filter));//hash muticast
 	}
 }
-static int set_mac_addr_n(struct net_device *dev, void *addr){
-	printk("mac addr come in\n");
-	struct sockaddr *sa = addr;
-
-	if (!is_valid_ether_addr(sa->sa_data))
-		return -EADDRNOTAVAIL;
-
-	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
-
+static void set_mac_addr_n(struct net_device *dev, void *p){
+	eth_mac_addr(dev,p);
 	write_mac_addr(dev, dev->dev_addr);
-	return 0;
+
 }
 
 static const struct net_device_ops am_netdev_ops = {
@@ -1718,92 +1671,6 @@ static const struct net_device_ops am_netdev_ops = {
 	.ndo_validate_addr      = eth_validate_addr,
 };
 
-static int aml_ethtool_get_settings(struct net_device *dev,
-					 struct ethtool_cmd *cmd)
-{
-	struct am_net_private *np = netdev_priv(dev);
-
-	if (!np->phydev)
-		return -ENODEV;
-
-	cmd->maxtxpkt = 1;
-	cmd->maxrxpkt = 1;
-	return phy_ethtool_gset(np->phydev, cmd);
-}
-
-static int aml_ethtool_set_settings(struct net_device *dev,
-					 struct ethtool_cmd *cmd)
-{
-	struct am_net_private *np = netdev_priv(dev);
-
-	if (!np->phydev)
-		return -ENODEV;
-
-	return phy_ethtool_sset(np->phydev, cmd);
-}
-
-static int aml_ethtool_nway_reset(struct net_device *netdev)
-{
-	struct am_net_private *np = netdev_priv(netdev);
-
-	if (!np->phydev)
-		return -ENODEV;
-
-	return phy_start_aneg(np->phydev);
-}
-static void aml_eth_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-{
-	struct am_net_private *np = netdev_priv(dev);
-	wol->supported = 0;
-	wol->wolopts = 0;
-	if (np->phydev)
-		phy_ethtool_get_wol(np->phydev, wol);
-}
-
-static int aml_eth_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-{
-	struct am_net_private *np = netdev_priv(dev);
-	int err;
-
-	if (np->phydev == NULL)
-		return -EOPNOTSUPP;
-
-	err = phy_ethtool_set_wol(np->phydev, wol);
-	/* Given that amlogic mac works without the micrel PHY driver,
-	 * this debugging hint is useful to have.
-	 */
-	if (err == -EOPNOTSUPP)
-		printk( "The PHY does not support set_wol, was CONFIG_MICREL_PHY enabled?\n");
-	return err;
-}
-static int aml_ethtool_op_get_eee(struct net_device *dev,
-				     struct ethtool_eee *edata)
-{
-	struct am_net_private *np = netdev_priv(dev);
-	if (np->phydev == NULL)
-		return -EOPNOTSUPP;
-	return phy_ethtool_get_eee(np->phydev, edata);
-}
-
-static int aml_ethtool_op_set_eee(struct net_device *dev,
-				     struct ethtool_eee *edata)
-{
-	struct am_net_private *np = netdev_priv(dev);
-	if (np->phydev == NULL)
-		return -EOPNOTSUPP;
-	return phy_ethtool_set_eee(np->phydev, edata);
-}
-
-static const struct ethtool_ops aml_ethtool_ops = {
-	.get_settings = aml_ethtool_get_settings,
-	.set_settings = aml_ethtool_set_settings,
-	.nway_reset = aml_ethtool_nway_reset,
-	.get_link = ethtool_op_get_link,
-	.get_wol  = aml_eth_get_wol,
-	.set_wol  = aml_eth_set_wol,
-	.get_eee = aml_ethtool_op_get_eee,
-	.set_eee = aml_ethtool_op_set_eee,
-};
 /* --------------------------------------------------------------------------*/
 /**
  * @brief  setup_net_device
@@ -1820,7 +1687,7 @@ static int setup_net_device(struct net_device *dev)
 	dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	dev->features = NETIF_F_GEN_CSUM;
 	dev->netdev_ops = &am_netdev_ops;
-	dev->ethtool_ops = &aml_ethtool_ops;	// &netdev_ethtool_ops;
+	dev->ethtool_ops = NULL;	// &netdev_ethtool_ops;
 	dev->watchdog_timeo = TX_TIMEOUT;
 	np->irq_mask = (1 << 16) |          //NIE: Normal Interrupt Summary Enable
 	               (1 << 15) |          //abnormal int summary
@@ -1840,23 +1707,6 @@ static int setup_net_device(struct net_device *dev)
 	return res;
 }
 
-/*
-M6TV
- 23
-M6TVlite
- 24
-M8
- 25
-M6TVd
- 26
-M8baby
- 27
-G9TV
- 28
-*/
-static unsigned int get_cpuid(){
-	return READ_CBUS_REG(0x1f53)&0xff;
-}
 /* --------------------------------------------------------------------------*/
 /**
  * @brief  probe_init
@@ -1880,8 +1730,7 @@ static int probe_init(struct net_device *ndev)
 	if (g_debug > 0) {
 		printk("ethernet base addr is %x\n", (unsigned int)ndev->base_addr);
 	}
-	if(phy_interface == 1)
-	 	new_maclogic=1;
+
 	res = setup_net_device(ndev);
 	if (res != 0) {
 		printk("setup net device error !\n");
@@ -2660,131 +2509,7 @@ static ssize_t eth_linkspeed_show(struct class *class, struct class_attribute *a
 
 	return ret;
 }
-static const char *g_pwol_help = {
-	"Ethernet WOL:\n"
-	"    0. disable PHY WOL.\n"
-	"    1. enable PHY  WOL, Magic Packet.\n"
 
-};
-static void eth_pwol_show(struct class *class, struct class_attribute *attr, char *buf)
-{
-	struct am_net_private *np = netdev_priv(my_ndev);
-	int ret;
-	struct ethtool_wolinfo syswol;
-	syswol.supported = 0;
-	syswol.wolopts = 0;
-	if (np->phydev)
-		phy_ethtool_get_wol(np->phydev, &syswol);
-	ret = sprintf(buf, "%s\n", g_pwol_help);
-	printk("Current PHY WOL: %d\n", syswol.wolopts);
-	return ret;
-}
-static int eth_pwol_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
-{
-	struct am_net_private *np = netdev_priv(my_ndev);
-	int err;
-	unsigned int enable = -1;
-	struct ethtool_wolinfo syswol;
-	if (np->phydev == NULL)
-		return -EOPNOTSUPP;
-	enable = simple_strtoul(buf, NULL, 0);
-	if((enable >=0) && (enable <2)){
-	switch(enable){
-		case 0:
-			// close wol funtion
-			 syswol.wolopts = WAKE_PHY;
-			 err = phy_ethtool_set_wol(np->phydev, &syswol);
-				return count;
-		case 1:
-			//open wol funtion
-			syswol.wolopts = WAKE_MAGIC;
-			printk("Set PHY i11WOL: %d\n,WAKE_MAGIC = %d\n",syswol.wolopts,WAKE_MAGIC);
-			 phy_ethtool_set_wol(np->phydev, &syswol);
-			printk("Set PHY WOL: %d\n", enable);
-				return count;
-		default:
-			return count;
-	}
-	}
-	else{
-			printk("Set Ethernet WOL Error\n");
-			return count;
-	}
-	return count;
-}
-#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON8
-
-static int am_net_cali(int argc, char **argv,int gate)
-{
-	int cali_rise = 0;
-	int cali_sel = 0;
-	int cali_start = 0;
-	int cali_time = 0;
-	int ii=0;
-	cali_start = gate;
-	unsigned int value;
-	if ((argc < 4) || (argv == NULL) || (argv[0] == NULL)
-			|| (argv[1] == NULL) || (argv[2] == NULL)|| (argv[3] == NULL)) {
-		printk("Invalid syntax\n");
-		return -1;
-	}
-	cali_rise = simple_strtol(argv[1], NULL, 0);
-	cali_sel = simple_strtol(argv[2], NULL, 0);
-	cali_time = simple_strtol(argv[3], NULL, 0);
-	writel((readl(P_PREG_ETH_REG0)&(~(0x1f << 25))),P_PREG_ETH_REG0);
-	writel((readl(P_PREG_ETH_REG0)|(cali_start << 25)|(cali_rise << 26)|(cali_sel << 27)),P_PREG_ETH_REG0);
-	printk("rise :%d   sel: %d  time: %d   start:%d  cbus2050 = %x\n",cali_rise,cali_sel,cali_time,cali_start,readl(P_PREG_ETH_REG0));
-	for(ii=0;ii < cali_time;ii++){
-		value = readl(P_PREG_ETH_REG1);
-		if((value>>15) & 0x1){
- 			printk("value == %x,  cali_len == %d, cali_idx == %d,  cali_sel =%d,  cali_rise = %d\n",value,(value>>5)&0x1f,(value&0x1f),(value>>11)&0x7,(value>>14)&0x1);
-		}
-	}
-
-	return 0;
-}
-static ssize_t eth_cali_store(struct class *class, struct class_attribute *attr,
-		const char *buf, size_t count)
-{
-	int argc;
-	char *buff, *p, *para;
-	char *argv[5];
-	char cmd;
-
-	buff = kstrdup(buf, GFP_KERNEL);
-	p = buff;
-	for (argc = 0; argc < 6; argc++) {
-		para = strsep(&p, " ");
-		if (para == NULL)
-			break;
-		argv[argc] = para;
-	}
-	if (argc < 1 || argc > 4)
-		goto end;
-
-	cmd = argv[0][0];
-		switch (cmd) {
-		case 'e':
-		case 'E':
-			am_net_cali(argc, argv,1);
-			break;
-		case 'd':
-		case 'D':
-			am_net_cali(argc, argv,0);
-			break;
-
-		default:
-			goto end;
-		}
-	
-		return count;
-	
-	end:
-		kfree(buff);
-		return 0;
-
-}
-#endif
 static struct class *eth_sys_class;
 static CLASS_ATTR(mdcclk, S_IWUSR | S_IRUGO, eth_mdcclk_show, eth_mdcclk_store);
 static CLASS_ATTR(debug, S_IWUSR | S_IRUGO, eth_debug_show, eth_debug_store);
@@ -2792,11 +2517,7 @@ static CLASS_ATTR(count, S_IWUSR | S_IRUGO, eth_count_show, eth_count_store);
 static CLASS_ATTR(phyreg, S_IWUSR | S_IRUGO, eth_phyreg_help, eth_phyreg_func);
 static CLASS_ATTR(macreg, S_IWUSR | S_IRUGO, eth_macreg_help, eth_macreg_func);
 static CLASS_ATTR(wol, S_IWUSR | S_IRUGO, eth_wol_show, eth_wol_store);
-static CLASS_ATTR(pwol, S_IWUSR | S_IRUGO, eth_pwol_show, eth_pwol_store);
 static CLASS_ATTR(linkspeed, S_IWUSR | S_IRUGO, eth_linkspeed_show, NULL);
-#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON8
-static CLASS_ATTR(cali, S_IWUSR | S_IRUGO, NULL,eth_cali_store);
-#endif
 
 /* --------------------------------------------------------------------------*/
 /**
@@ -2817,11 +2538,7 @@ static int __init am_eth_class_init(void)
 	ret = class_create_file(eth_sys_class, &class_attr_phyreg);
 	ret = class_create_file(eth_sys_class, &class_attr_macreg);
 	ret = class_create_file(eth_sys_class, &class_attr_wol);
-	ret = class_create_file(eth_sys_class, &class_attr_pwol);
 	ret = class_create_file(eth_sys_class, &class_attr_linkspeed);
-#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON8
-	ret = class_create_file(eth_sys_class, &class_attr_cali);
-#endif
 
 	return ret;
 }
@@ -2882,10 +2599,6 @@ static int ethernet_probe(struct platform_device *pdev)
 		printk("Please config interruptnum.\n");
 		return -1;
 	}
-	ret = of_property_read_u32(pdev->dev.of_node,"phy_interface",&phy_interface); // 0 rgmii 1: RMII
-	if (ret) {
-		printk("Please config phy  interface.\n");
-	}
 	ret = of_property_read_u32(pdev->dev.of_node,"savepowermode",&savepowermode);
 	if (ret) {
 		printk("Please config savepowermode.\n");
@@ -2919,7 +2632,6 @@ static int ethernet_probe(struct platform_device *pdev)
        early_suspend.resume = ethernet_late_resume;
        register_early_suspend(&early_suspend);
 #endif
-	SET_NETDEV_DEV(my_ndev, &pdev->dev);
 	res = probe_init(my_ndev);
 	if (res != 0)
 		free_netdev(my_ndev);
@@ -3011,7 +2723,7 @@ static const struct of_device_id eth_dt_match[]={
 static struct platform_driver ethernet_driver = {
 	.probe   = ethernet_probe,
 	.remove  = ethernet_remove,
-#ifndef  CONFIG_PM
+#ifdef  CONFIG_PM
 	.suspend = ethernet_suspend,
 	.resume  = ethernet_resume,
 #endif
