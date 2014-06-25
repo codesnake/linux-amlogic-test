@@ -146,10 +146,7 @@ typedef  struct {
 	u32			field_out_en;
 	u32			scale_workaround;
 	u32			fb_for_4k2k;
-	u32         		antiflicker_mode;
-	u32			angle[HW_OSD_COUNT];
-	u32			clone;
-	u32	       bot_type;
+	u32         antiflicker_mode;
 }hw_para_t;
 
 /************************************************************************

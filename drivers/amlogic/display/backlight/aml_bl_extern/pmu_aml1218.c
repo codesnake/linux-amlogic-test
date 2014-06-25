@@ -278,7 +278,8 @@ static void __exit aml_aml1218_exit(void)
     platform_driver_unregister(&aml_aml1218_driver);
 }
 
-rootfs_initcall(aml_aml1218_init);
+//late_initcall(aml_aml1218_init);
+module_init(aml_aml1218_init);
 module_exit(aml_aml1218_exit);
 
 MODULE_AUTHOR("AMLOGIC");
