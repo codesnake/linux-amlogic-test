@@ -60,18 +60,21 @@ void mali_pm_os_resume(void)
 
 	MALI_DEBUG_PRINT(3, ("Mali PM: OS resume\n"));
 
-	if (MALI_TRUE != mali_power_on) {
+	if (MALI_TRUE != mali_power_on)
+	{
 		do_reset = MALI_TRUE;
 	}
 
-	if (NULL != pmu) {
+	if (NULL != pmu)
+	{
 		mali_pmu_reset(pmu);
 	}
 
 	mali_power_on = MALI_TRUE;
 	_mali_osk_write_mem_barrier();
 
-	if (do_reset) {
+	if (do_reset)
+	{
 		mali_pm_reset_gpu();
 		mali_group_power_on();
 	}
@@ -94,18 +97,21 @@ void mali_pm_runtime_resume(void)
 
 	MALI_DEBUG_PRINT(3, ("Mali PM: Runtime resume\n"));
 
-	if (MALI_TRUE != mali_power_on) {
+	if (MALI_TRUE != mali_power_on)
+	{
 		do_reset = MALI_TRUE;
 	}
 
-	if (NULL != pmu) {
+	if (NULL != pmu)
+	{
 		mali_pmu_reset(pmu);
 	}
 
 	mali_power_on = MALI_TRUE;
 	_mali_osk_write_mem_barrier();
 
-	if (do_reset) {
+	if (do_reset)
+	{
 		mali_pm_reset_gpu();
 		mali_group_power_on();
 	}
